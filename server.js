@@ -2,9 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// 🔹 Un solo sitio donde definimos el archivo de BD
+const DB_FILE = process.env.DB_FILE || './conversations.db';
 
 // Middleware
 app.use(cors());
@@ -16,8 +20,11 @@ let db;
 // Inicializar SQLite
 const initDB = async () => {
   try {
+    const dbPath = path.resolve(DB_FILE);
+    console.log('📁 Usando base de datos en:', dbPath);
+
     db = await open({
-      filename: './conversations.db',
+      filename: dbPath,
       driver: sqlite3.Database
     });
 
@@ -44,6 +51,17 @@ const initDB = async () => {
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
+});
+
+// 🔹 Info rápida de la BD (para comprobar que hay datos)
+app.get("/api/db-info", async (req, res) => {
+  try {
+    const row = await db.get("SELECT COUNT(*) as total FROM conversations");
+    res.json({ success: true, total: row.total });
+  } catch (err) {
+    console.error("Error al leer DB:", err);
+    res.status(500).json({ error: "Error al leer la base de datos" });
+  }
 });
 
 // Guardar conversación
@@ -186,12 +204,20 @@ app.get("/api/stats", async (req, res) => {
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
+
+// 🔹 Descarga del archivo .db (mismo archivo que usa SQLite)
 app.get("/download-db", (req, res) => {
-  const dbPath = process.env.DB_FILE || "./conversations.db";
+  const dbPath = path.resolve(DB_FILE);
+  console.log("📁 Intentando descargar DB desde:", dbPath);
+
   res.download(dbPath, "conversations.db", (err) => {
     if (err) {
       console.error("❌ Error al descargar DB:", err);
-      res.status(500).send("Error al descargar la base de datos");
+      if (!res.headersSent) {
+        res.status(500).send("Error al descargar la base de datos");
+      }
+    } else {
+      console.log("✅ DB enviada correctamente");
     }
   });
 });
