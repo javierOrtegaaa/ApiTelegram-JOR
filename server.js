@@ -186,6 +186,15 @@ app.get("/api/stats", async (req, res) => {
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
+app.get("/download-db", (req, res) => {
+  const dbPath = process.env.DB_FILE || "./conversations.db";
+  res.download(dbPath, "conversations.db", (err) => {
+    if (err) {
+      console.error("❌ Error al descargar DB:", err);
+      res.status(500).send("Error al descargar la base de datos");
+    }
+  });
+});
 
 // Iniciar servidor
 const start = async () => {
